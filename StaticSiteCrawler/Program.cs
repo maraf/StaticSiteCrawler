@@ -14,22 +14,39 @@ namespace StaticSiteCrawler
     {
         static void Main(string[] args)
         {
-            if (args.Length != 2)
+            if (args.Length <= 2)
             {
                 Console.WriteLine("Incorrect usage. The application requires 2 arguments:");
                 Console.WriteLine("- The URL to crawl.");
                 Console.WriteLine("- The output directory.");
+                Console.WriteLine("- (optional) The semicolon separated list of root paths to start crawling with (eg.: /;/404.html).");
                 return;
             }
 
             string url = args[0];
             string outputPath = args[1];
+
+            HashSet<string> startUrls = new HashSet<string>();
+            if (args.Length == 2)
+            {
+                startUrls.Add("/");
+            }
+            else
+            {
+                for (int i = 2; i < args.Length; i++)
+                    startUrls.Add(args[i]);
+            }
+
             EnsureDirectory(outputPath);
 
             Console.WriteLine("Crawling {0}...", url);
 
             HashSet<string> doneUrls = new HashSet<string>();
-            Execute(doneUrls, url, url, outputPath).Wait();
+            foreach (string startUrl in startUrls)
+            {
+                string urlToExecute = CombineUrl(url, startUrl);
+                Execute(doneUrls, url, urlToExecute, outputPath).Wait();
+            }
 
             Console.WriteLine("Done.");
 #if DEBUG
@@ -58,18 +75,22 @@ namespace StaticSiteCrawler
 
         private static void SaveContent(string outputPath, string path, string content)
         {
+            string targetDirectory;
+            string file;
             if (path.EndsWith(".html"))
             {
-                // TODO: Save as file
+                targetDirectory = Path.Combine(outputPath, Path.GetDirectoryName(path));
+                file = Path.Combine(targetDirectory, Path.GetFileName(path));
             }
             else
             {
-                string targetDirectory = Path.Combine(outputPath, path);
-                EnsureDirectory(targetDirectory);
-
-                string file = Path.Combine(targetDirectory, "index.html");
-                File.WriteAllText(file, content);
+                targetDirectory = Path.Combine(outputPath, path);
+                file = Path.Combine(targetDirectory, "index.html");
             }
+
+            EnsureDirectory(targetDirectory);
+            Console.WriteLine("Writing file '{0}'.", file);
+            File.WriteAllText(file, content);
         }
 
         private static async Task<string> GetUrlContent(string url)
@@ -112,7 +133,7 @@ namespace StaticSiteCrawler
         {
             if (rootUrl.EndsWith("/") && path.StartsWith("/"))
                 path = path.Substring(1);
-            else if(!rootUrl.EndsWith("/") && !path.StartsWith("/"))
+            else if (!rootUrl.EndsWith("/") && !path.StartsWith("/"))
                 path = "/" + path;
 
             return rootUrl + path;
