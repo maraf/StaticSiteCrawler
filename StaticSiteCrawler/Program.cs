@@ -77,7 +77,7 @@ namespace StaticSiteCrawler
         {
             string targetDirectory;
             string file;
-            if (path.EndsWith(".html"))
+            if (path.EndsWith(".html") || path.EndsWith(".xml"))
             {
                 targetDirectory = Path.Combine(outputPath, Path.GetDirectoryName(path));
                 file = Path.Combine(targetDirectory, Path.GetFileName(path));
