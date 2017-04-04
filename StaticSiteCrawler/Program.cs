@@ -110,6 +110,9 @@ namespace StaticSiteCrawler
         private static List<string> GetLinks(string content)
         {
             List<string> result = new List<string>();
+            if (String.IsNullOrEmpty(content))
+                return result;
+
             MatchCollection matches = linkRegex.Matches(content);
             foreach (Match match in matches)
             {
