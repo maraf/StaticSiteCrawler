@@ -113,8 +113,11 @@ namespace StaticSiteCrawler
             MatchCollection matches = linkRegex.Matches(content);
             foreach (Match match in matches)
             {
-                string path = match.Groups["value"].Value;
-                result.Add(path);
+                if (match != null && match.Groups != null && match.Groups["value"] != null)
+                {
+                    string path = match.Groups["value"].Value;
+                    result.Add(path);
+                }
             }
 
             return result;
