@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -12,8 +14,15 @@ namespace StaticSiteCrawler
 {
     class Program
     {
+        private static HashSet<string> doneUrls;
+        private static HashSet<string> failedUrls;
+
         static void Main(string[] args)
         {
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.ServerCertificateValidationCallback = TrustToAllCertifacatesCallback;
+
             if (args.Length <= 2)
             {
                 Console.WriteLine("Incorrect usage. The application requires 2 arguments:");
@@ -41,27 +50,45 @@ namespace StaticSiteCrawler
 
             Console.WriteLine("Crawling {0}...", url);
 
-            HashSet<string> doneUrls = new HashSet<string>();
+            doneUrls = new HashSet<string>();
+            failedUrls = new HashSet<string>();
+
             foreach (string startUrl in startUrls)
             {
                 string urlToExecute = CombineUrl(url, startUrl);
-                Execute(doneUrls, url, urlToExecute, outputPath).Wait();
+                ExecuteAsync(url, urlToExecute, outputPath).Wait();
             }
 
-            Console.WriteLine("Done.");
+            if (failedUrls.Count > 0)
+                Environment.ExitCode = 1;
+
+            Console.WriteLine($"Done. Processed '{doneUrls.Count}' URLs. Failed '{failedUrls.Count}' URLs.");
+
 #if DEBUG
             Console.ReadKey(true);
 #endif
         }
 
-        private static async Task Execute(HashSet<string> doneUrls, string rootUrl, string urlToExecute, string outputPath)
+        private static bool TrustToAllCertifacatesCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
+
+        private static async Task ExecuteAsync(string rootUrl, string urlToExecute, string outputPath)
         {
-            string content = await GetUrlContent(urlToExecute);
+            Console.WriteLine("Processing URL '{0}'.", urlToExecute);
+            string content = await GetUrlContentAsync(urlToExecute);
             doneUrls.Add(urlToExecute);
 
-            SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content);
+            if (!String.IsNullOrEmpty(content))
+            {
 
-            List<string> links = GetLinks(content);
+                SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content);
+
+                List<string> links = GetLinks(content);
+                await ProcessLinksAsync(rootUrl, outputPath, links);
+            }
+        }
+
+        private static async Task ProcessLinksAsync(string rootUrl, string outputPath, List<string> links)
+        {
             foreach (string link in links)
             {
                 string url = link;
@@ -69,7 +96,7 @@ namespace StaticSiteCrawler
                     url = CombineUrl(rootUrl, link);
 
                 if (url.StartsWith(rootUrl) && !doneUrls.Contains(url))
-                    await Execute(doneUrls, rootUrl, url, outputPath);
+                    await ExecuteAsync(rootUrl, url, outputPath);
             }
         }
 
@@ -93,15 +120,18 @@ namespace StaticSiteCrawler
             File.WriteAllText(file, content);
         }
 
-        private static async Task<string> GetUrlContent(string url)
+        private static async Task<string> GetUrlContentAsync(string url)
         {
             using (HttpClient client = new HttpClient())
             {
                 HttpResponseMessage response = await client.GetAsync(url);
+                Console.WriteLine($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
                 if (response.StatusCode == HttpStatusCode.OK)
                     return await response.Content.ReadAsStringAsync();
+
             }
 
+            failedUrls.Add(url);
             return null;
         }
 
