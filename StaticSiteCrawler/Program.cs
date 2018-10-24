@@ -84,7 +84,7 @@ namespace StaticSiteCrawler
             Log($"Done. Processed '{doneUrls.Count}' URLs. Failed '{failedUrls.Count}' URLs.");
 
 #if DEBUG
-            Console.ReadKey(true);
+            //Console.ReadKey(true);
 #endif
         }
 
