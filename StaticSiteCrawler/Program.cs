@@ -104,6 +104,10 @@ namespace StaticSiteCrawler
         {
             string targetDirectory;
             string file;
+
+            if (path.Length > 0 && (path[0] == Path.DirectorySeparatorChar || path[0] == Path.AltDirectorySeparatorChar))
+                path = path.Substring(1);
+
             if (path.EndsWith(".html") || path.EndsWith(".xml"))
             {
                 targetDirectory = Path.Combine(outputPath, Path.GetDirectoryName(path));
