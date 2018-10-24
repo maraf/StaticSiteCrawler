@@ -16,6 +16,13 @@ namespace StaticSiteCrawler
     {
         private static HashSet<string> doneUrls;
         private static HashSet<string> failedUrls;
+        private static bool urlListOnly = false;
+
+        private static void Log(string message)
+        {
+            if (!urlListOnly)
+                Console.WriteLine(message);
+        }
 
         static void Main(string[] args)
         {
@@ -29,6 +36,7 @@ namespace StaticSiteCrawler
                 Console.WriteLine("- The URL to crawl.");
                 Console.WriteLine("- The output directory.");
                 Console.WriteLine("- (optional) The semicolon separated list of root paths to start crawling with (eg.: /;/404.html).");
+                Console.WriteLine("- Use '--urlonly' to print URL list only.");
                 return;
             }
 
@@ -43,12 +51,17 @@ namespace StaticSiteCrawler
             else
             {
                 for (int i = 2; i < args.Length; i++)
-                    startUrls.Add(args[i]);
+                {
+                    if (args[i].ToLowerInvariant() == "--urlonly")
+                        urlListOnly = true;
+                    else
+                        startUrls.Add(args[i]);
+                }
             }
 
             EnsureDirectory(outputPath);
 
-            Console.WriteLine("Crawling {0}...", url);
+            Log($"Crawling {url}...");
 
             doneUrls = new HashSet<string>();
             failedUrls = new HashSet<string>();
@@ -59,10 +72,16 @@ namespace StaticSiteCrawler
                 ExecuteAsync(url, urlToExecute, outputPath).Wait();
             }
 
+            if (urlListOnly)
+            {
+                foreach (string item in doneUrls)
+                    Console.WriteLine(item);
+            }
+
             if (failedUrls.Count > 0)
                 Environment.ExitCode = 1;
 
-            Console.WriteLine($"Done. Processed '{doneUrls.Count}' URLs. Failed '{failedUrls.Count}' URLs.");
+            Log($"Done. Processed '{doneUrls.Count}' URLs. Failed '{failedUrls.Count}' URLs.");
 
 #if DEBUG
             Console.ReadKey(true);
@@ -73,14 +92,14 @@ namespace StaticSiteCrawler
 
         private static async Task ExecuteAsync(string rootUrl, string urlToExecute, string outputPath)
         {
-            Console.WriteLine("Processing URL '{0}'.", urlToExecute);
+            Log($"Processing URL '{urlToExecute}'.");
             string content = await GetUrlContentAsync(urlToExecute);
             doneUrls.Add(urlToExecute);
 
             if (!String.IsNullOrEmpty(content))
             {
-
-                SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content);
+                if (!urlListOnly)
+                    SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content);
 
                 List<string> links = GetLinks(content);
                 await ProcessLinksAsync(rootUrl, outputPath, links);
@@ -120,7 +139,7 @@ namespace StaticSiteCrawler
             }
 
             EnsureDirectory(targetDirectory);
-            Console.WriteLine("Writing file '{0}'.", file);
+            Log($"Writing file '{file}'.");
             File.WriteAllText(file, content);
         }
 
@@ -129,7 +148,7 @@ namespace StaticSiteCrawler
             using (HttpClient client = new HttpClient())
             {
                 HttpResponseMessage response = await client.GetAsync(url);
-                Console.WriteLine($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
+                Log($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
                 if (response.StatusCode == HttpStatusCode.OK)
                     return await response.Content.ReadAsStringAsync();
 
@@ -164,7 +183,7 @@ namespace StaticSiteCrawler
         {
             if (!Directory.Exists(path))
             {
-                Console.WriteLine("Creating directory '{0}'.", path);
+                Log($"Creating directory '{path}'.");
                 Directory.CreateDirectory(path);
             }
         }
