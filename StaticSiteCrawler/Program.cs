@@ -119,6 +119,8 @@ namespace StaticSiteCrawler
             }
         }
 
+        private readonly static List<string> fileExtensions = new List<string>() { ".html", ".xml", ".js", ".css", ".jpg", ".png", ".gif", ".svg" };
+
         private static void SaveContent(string outputPath, string path, string content)
         {
             string targetDirectory;
@@ -127,7 +129,7 @@ namespace StaticSiteCrawler
             if (path.Length > 0 && (path[0] == Path.DirectorySeparatorChar || path[0] == Path.AltDirectorySeparatorChar))
                 path = path.Substring(1);
 
-            if (path.EndsWith(".html") || path.EndsWith(".xml"))
+            if (fileExtensions.Any(e => path.EndsWith(e, StringComparison.InvariantCultureIgnoreCase)))
             {
                 targetDirectory = Path.Combine(outputPath, Path.GetDirectoryName(path));
                 file = Path.Combine(targetDirectory, Path.GetFileName(path));
@@ -158,7 +160,11 @@ namespace StaticSiteCrawler
             return null;
         }
 
-        private static Regex linkRegex = new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex linkRegex = new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex imageRegex = new Regex("<img.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex scriptRegex = new Regex("<script.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex linkStyleRegex = new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static List<Regex> regexes = new List<Regex>() { linkRegex, imageRegex, scriptRegex, linkStyleRegex };
 
         private static List<string> GetLinks(string content)
         {
@@ -166,13 +172,16 @@ namespace StaticSiteCrawler
             if (String.IsNullOrEmpty(content))
                 return result;
 
-            MatchCollection matches = linkRegex.Matches(content);
-            foreach (Match match in matches)
+            foreach (Regex regex in regexes)
             {
-                if (match != null && match.Groups != null && match.Groups["value"] != null)
+                MatchCollection matches = regex.Matches(content);
+                foreach (Match match in matches)
                 {
-                    string path = match.Groups["value"].Value;
-                    result.Add(path);
+                    if (match != null && match.Groups != null && match.Groups["value"] != null)
+                    {
+                        string path = match.Groups["value"].Value;
+                        result.Add(path);
+                    }
                 }
             }
 

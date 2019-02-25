@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "StaticSiteCrawler": {
+      "commandName": "Project",
+      "commandLineArgs": "http://localhost:60974/ ..\\Output /"
+    }
+  }
+}
