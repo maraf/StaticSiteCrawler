@@ -93,15 +93,15 @@ namespace StaticSiteCrawler
         private static async Task ExecuteAsync(string rootUrl, string urlToExecute, string outputPath)
         {
             Log($"Processing URL '{urlToExecute}'.");
-            string content = await GetUrlContentAsync(urlToExecute);
+            var content = await GetUrlContentAsync(urlToExecute);
             doneUrls.Add(urlToExecute);
 
-            if (!String.IsNullOrEmpty(content))
+            if (content != null)
             {
                 if (!urlListOnly)
-                    SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content);
+                    SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content.Value.body);
 
-                List<string> links = GetLinks(content);
+                List<string> links = GetLinks(content.Value);
                 await ProcessLinksAsync(rootUrl, outputPath, links);
             }
         }
@@ -145,14 +145,14 @@ namespace StaticSiteCrawler
             File.WriteAllText(file, content);
         }
 
-        private static async Task<string> GetUrlContentAsync(string url)
+        private static async Task<(string body, string contentType)?> GetUrlContentAsync(string url)
         {
             using (HttpClient client = new HttpClient())
             {
                 HttpResponseMessage response = await client.GetAsync(url);
                 Log($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
                 if (response.StatusCode == HttpStatusCode.OK)
-                    return await response.Content.ReadAsStringAsync();
+                    return (await response.Content.ReadAsStringAsync(), response.Content.Headers.ContentType.MediaType);
 
             }
 
@@ -160,21 +160,24 @@ namespace StaticSiteCrawler
             return null;
         }
 
-        private readonly static Regex linkRegex = new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static Regex imageRegex = new Regex("<img.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static Regex scriptRegex = new Regex("<script.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static Regex linkStyleRegex = new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static List<Regex> regexes = new List<Regex>() { linkRegex, imageRegex, scriptRegex, linkStyleRegex };
+        private readonly static Regex htmlLinkRegex = new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex htmlImageRegex = new Regex("<img.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex htmlScriptRegex = new Regex("<script.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static Regex htmlLinkStyleRegex = new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static List<Regex> htmlRegexes = new List<Regex>() { htmlLinkRegex, htmlImageRegex, htmlScriptRegex, htmlLinkStyleRegex };
 
-        private static List<string> GetLinks(string content)
+        private readonly static Regex cssBackgroundRegex = new Regex("url\\(\"(?<value>.*?)\"\\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly static List<Regex> cssRegexes = new List<Regex>() { cssBackgroundRegex };
+
+        private static List<string> GetLinks((string body, string contentType) content)
         {
             List<string> result = new List<string>();
-            if (String.IsNullOrEmpty(content))
+            if (String.IsNullOrEmpty(content.body))
                 return result;
 
-            foreach (Regex regex in regexes)
+            foreach (Regex regex in content.contentType == "text/css" ? cssRegexes : htmlRegexes)
             {
-                MatchCollection matches = regex.Matches(content);
+                MatchCollection matches = regex.Matches(content.body);
                 foreach (Match match in matches)
                 {
                     if (match != null && match.Groups != null && match.Groups["value"] != null)
