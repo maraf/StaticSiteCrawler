@@ -99,9 +99,9 @@ namespace StaticSiteCrawler
             if (content != null)
             {
                 if (!urlListOnly)
-                    SaveContent(outputPath, urlToExecute.Substring(rootUrl.Length), content.Value.body);
+                    await SaveContentAsync(outputPath, urlToExecute.Substring(rootUrl.Length), content.Value.body);
 
-                List<string> links = GetLinks(content.Value);
+                List<string> links = await GetLinksAsync(content.Value);
                 await ProcessLinksAsync(rootUrl, outputPath, links);
             }
         }
@@ -121,7 +121,7 @@ namespace StaticSiteCrawler
 
         private readonly static List<string> fileExtensions = new List<string>() { ".html", ".xml", ".js", ".css", ".jpg", ".png", ".gif", ".svg" };
 
-        private static void SaveContent(string outputPath, string path, string content)
+        private static async Task SaveContentAsync(string outputPath, string path, HttpContent content)
         {
             string targetDirectory;
             string file;
@@ -142,17 +142,18 @@ namespace StaticSiteCrawler
 
             EnsureDirectory(targetDirectory);
             Log($"Writing file '{file}'.");
-            File.WriteAllText(file, content);
+
+            File.WriteAllBytes(file, await content.ReadAsByteArrayAsync());
         }
 
-        private static async Task<(string body, string contentType)?> GetUrlContentAsync(string url)
+        private static async Task<(HttpContent body, string contentType)?> GetUrlContentAsync(string url)
         {
             using (HttpClient client = new HttpClient())
             {
                 HttpResponseMessage response = await client.GetAsync(url);
                 Log($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
                 if (response.StatusCode == HttpStatusCode.OK)
-                    return (await response.Content.ReadAsStringAsync(), response.Content.Headers.ContentType.MediaType);
+                    return (response.Content, response.Content.Headers.ContentType.MediaType);
 
             }
 
@@ -169,15 +170,19 @@ namespace StaticSiteCrawler
         private readonly static Regex cssBackgroundRegex = new Regex("url\\(\"(?<value>.*?)\"\\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private readonly static List<Regex> cssRegexes = new List<Regex>() { cssBackgroundRegex };
 
-        private static List<string> GetLinks((string body, string contentType) content)
+        private static async Task<List<string>> GetLinksAsync((HttpContent body, string contentType) content)
         {
             List<string> result = new List<string>();
-            if (String.IsNullOrEmpty(content.body))
+            if (!content.body.Headers.ContentType.MediaType.StartsWith("text") && !content.body.Headers.ContentType.MediaType.StartsWith("application/xml") && !content.body.Headers.ContentType.MediaType.StartsWith("application/json"))
+                return result;
+
+            string body = await content.body.ReadAsStringAsync();
+            if (String.IsNullOrEmpty(body))
                 return result;
 
             foreach (Regex regex in content.contentType == "text/css" ? cssRegexes : htmlRegexes)
             {
-                MatchCollection matches = regex.Matches(content.body);
+                MatchCollection matches = regex.Matches(body);
                 foreach (Match match in matches)
                 {
                     if (match != null && match.Groups != null && match.Groups["value"] != null)
