@@ -120,6 +120,7 @@ namespace StaticSiteCrawler
         }
 
         private readonly static List<string> fileExtensions = new List<string>() { ".html", ".xml", ".js", ".css", ".jpg", ".png", ".gif", ".svg" };
+        private readonly static List<Regex> textContentTypes = new List<Regex>() { new Regex("text/(.*)"), new Regex("application/xml"), new Regex("application/json"), new Regex("application/javascript") };
 
         private static async Task SaveContentAsync(string outputPath, string path, HttpContent content)
         {
@@ -173,7 +174,7 @@ namespace StaticSiteCrawler
         private static async Task<List<string>> GetLinksAsync((HttpContent body, string contentType) content)
         {
             List<string> result = new List<string>();
-            if (!content.body.Headers.ContentType.MediaType.StartsWith("text") && !content.body.Headers.ContentType.MediaType.StartsWith("application/xml") && !content.body.Headers.ContentType.MediaType.StartsWith("application/json"))
+            if (!textContentTypes.Any(r => r.IsMatch(content.contentType)))
                 return result;
 
             string body = await content.body.ReadAsStringAsync();
