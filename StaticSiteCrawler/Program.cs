@@ -102,7 +102,21 @@ namespace StaticSiteCrawler
                     await SaveContentAsync(outputPath, urlToExecute.Substring(rootUrl.Length), content.Value.body);
 
                 List<string> links = await GetLinksAsync(content.Value);
+                PrepareUrls(urlToExecute, links);
                 await ProcessLinksAsync(rootUrl, outputPath, links);
+            }
+        }
+
+        private static void PrepareUrls(string urlToExecute, List<string> links)
+        {
+            Uri uriToExecute = new Uri(urlToExecute);
+            for (int i = 0; i < links.Count; i++)
+            {
+                string url = links[i];
+
+                Uri uri = new Uri(uriToExecute, url);
+                url = uri.ToString();
+                links[i] = url;
             }
         }
 
@@ -110,12 +124,8 @@ namespace StaticSiteCrawler
         {
             foreach (string link in links)
             {
-                string url = link;
-                if (url.StartsWith("/"))
-                    url = CombineUrl(rootUrl, link);
-
-                if (url.StartsWith(rootUrl) && !doneUrls.Contains(url))
-                    await ExecuteAsync(rootUrl, url, outputPath);
+                if (link.StartsWith(rootUrl) && !doneUrls.Contains(link))
+                    await ExecuteAsync(rootUrl, link, outputPath);
             }
         }
 
