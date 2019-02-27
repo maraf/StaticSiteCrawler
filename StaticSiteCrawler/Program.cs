@@ -136,7 +136,20 @@ namespace StaticSiteCrawler
             }
         }
 
-        private readonly static List<string> fileExtensions = new List<string>() { ".html", ".xml", ".js", ".css", ".jpg", ".png", ".gif", ".svg" };
+        private readonly static List<string> fileExtensions = new List<string>()
+        {
+            ".html",
+            ".xml",
+            ".js",
+            ".css",
+            ".jpg",
+            ".png",
+            ".gif",
+            ".svg",
+            ".eot",
+            ".ttf",
+            ".woff"
+        };
 
         private static async Task SaveContentAsync(string outputPath, string path, HttpContent content)
         {
