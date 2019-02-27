@@ -178,14 +178,20 @@ namespace StaticSiteCrawler
             return null;
         }
 
-        private readonly static Regex htmlLinkRegex = new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static Regex htmlImageRegex = new Regex("<img.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static Regex htmlScriptRegex = new Regex("<script.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static Regex htmlLinkStyleRegex = new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static List<Regex> htmlRegexes = new List<Regex>() { htmlLinkRegex, htmlImageRegex, htmlScriptRegex, htmlLinkStyleRegex };
+        private const RegexOptions regexOptions = RegexOptions.IgnoreCase | RegexOptions.Compiled;
 
-        private readonly static Regex cssBackgroundRegex = new Regex("url\\(\"(?<value>.*?)\"\\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private readonly static List<Regex> cssRegexes = new List<Regex>() { cssBackgroundRegex };
+        private readonly static List<Regex> htmlRegexes = new List<Regex>()
+        {
+            new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", regexOptions), // HTML a href
+            new Regex("<img.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", regexOptions), // HTML img src
+            new Regex("<script.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", regexOptions), // HTML script src
+            new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", regexOptions) // HTML link href *.css
+        };
+
+        private readonly static List<Regex> cssRegexes = new List<Regex>()
+        {
+            new Regex("url\\(\"(?<value>.*?)\"\\)", regexOptions) // CSS backgroun url()
+        };
 
         private static async Task<List<string>> GetLinksAsync((HttpContent body, string contentType) content)
         {
