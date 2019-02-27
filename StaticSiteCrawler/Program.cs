@@ -17,12 +17,20 @@ namespace StaticSiteCrawler
         private static HashSet<string> doneUrls;
         private static HashSet<string> failedUrls;
         private static bool urlListOnly = false;
+        private static bool downloadMissingOnly = false;
+
+        private static class Parameters
+        {
+            public const string DownloadMissingOnly = "--downloadmissing";
+            public const string UrlOnly = "--urlonly";
+        }
 
         private static void Log(string message)
         {
             if (!urlListOnly)
                 Console.WriteLine(message);
         }
+
 
         static async Task Main(string[] args)
         {
@@ -36,7 +44,8 @@ namespace StaticSiteCrawler
                 Console.WriteLine("- The URL to crawl.");
                 Console.WriteLine("- The output directory.");
                 Console.WriteLine("- (optional) The semicolon separated list of root paths to start crawling with (eg.: /;/404.html).");
-                Console.WriteLine("- Use '--urlonly' to print URL list only.");
+                Console.WriteLine($"- Use '{Parameters.UrlOnly}' to print URL list only.");
+                Console.WriteLine($"- Use '{Parameters.DownloadMissingOnly}' to download only files missing in the output directory.");
                 return;
             }
 
@@ -52,8 +61,11 @@ namespace StaticSiteCrawler
             {
                 for (int i = 2; i < args.Length; i++)
                 {
-                    if (args[i].ToLowerInvariant() == "--urlonly")
+                    string argNormalized = args[i].ToLowerInvariant();
+                    if (argNormalized == Parameters.UrlOnly)
                         urlListOnly = true;
+                    else if (argNormalized == Parameters.DownloadMissingOnly)
+                        downloadMissingOnly = true;
                     else
                         startUrls.Add(args[i]);
                 }
@@ -61,7 +73,10 @@ namespace StaticSiteCrawler
 
             EnsureDirectory(outputPath);
 
-            Log($"Crawling {url}...");
+            if (downloadMissingOnly)
+                Log("Downloading only not existing file.");
+
+            Log($"Crawling '{url}'.");
 
             doneUrls = new HashSet<string>();
             failedUrls = new HashSet<string>();
@@ -92,6 +107,13 @@ namespace StaticSiteCrawler
 
         private static async Task ExecuteAsync(string rootUrl, string urlToExecute, string outputPath)
         {
+            string outputFilePath = GetOutputFilePath(outputPath, urlToExecute.Substring(rootUrl.Length));
+            if (downloadMissingOnly && File.Exists(outputFilePath))
+            {
+                Log($"Skipping '{urlToExecute}' because local file already exists.");
+                return;
+            }
+
             Log($"Processing URL '{urlToExecute}'.");
             var content = await GetUrlContentAsync(urlToExecute);
             doneUrls.Add(urlToExecute);
@@ -99,7 +121,7 @@ namespace StaticSiteCrawler
             if (content != null)
             {
                 if (!urlListOnly)
-                    await SaveContentAsync(outputPath, urlToExecute.Substring(rootUrl.Length), content.Value.body);
+                    await SaveContentAsync(outputFilePath, content.Value.body);
 
                 List<string> links = await GetLinksAsync(content.Value);
                 PrepareUrls(urlToExecute, links);
@@ -151,7 +173,12 @@ namespace StaticSiteCrawler
             ".woff"
         };
 
-        private static async Task SaveContentAsync(string outputPath, string path, HttpContent content)
+        private static async Task SaveContentAsync(string file, HttpContent content)
+        {
+            File.WriteAllBytes(file, await content.ReadAsByteArrayAsync());
+        }
+
+        private static string GetOutputFilePath(string outputPath, string path)
         {
             string targetDirectory;
             string file;
@@ -172,8 +199,7 @@ namespace StaticSiteCrawler
 
             EnsureDirectory(targetDirectory);
             Log($"Writing file '{file}'.");
-
-            File.WriteAllBytes(file, await content.ReadAsByteArrayAsync());
+            return file;
         }
 
         private static async Task<(HttpContent body, string contentType)?> GetUrlContentAsync(string url)
