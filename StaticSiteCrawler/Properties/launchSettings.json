@@ -2,7 +2,7 @@
   "profiles": {
     "StaticSiteCrawler": {
       "commandName": "Project",
-      "commandLineArgs": "http://localhost:60974/ ..\\Output /"
+      "commandLineArgs": "http://www.neptuo.com ..\\Output /"
     }
   }
 }

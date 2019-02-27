@@ -24,7 +24,7 @@ namespace StaticSiteCrawler
                 Console.WriteLine(message);
         }
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             ServicePointManager.Expect100Continue = true;
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -69,7 +69,7 @@ namespace StaticSiteCrawler
             foreach (string startUrl in startUrls)
             {
                 string urlToExecute = CombineUrl(url, startUrl);
-                ExecuteAsync(url, urlToExecute, outputPath).Wait();
+                await ExecuteAsync(url, urlToExecute, outputPath);
             }
 
             if (urlListOnly)
@@ -84,7 +84,7 @@ namespace StaticSiteCrawler
             Log($"Done. Processed '{doneUrls.Count}' URLs. Failed '{failedUrls.Count}' URLs.");
 
 #if DEBUG
-            //Console.ReadKey(true);
+            Console.ReadKey(true);
 #endif
         }
 
@@ -115,7 +115,14 @@ namespace StaticSiteCrawler
                 string url = links[i];
 
                 Uri uri = new Uri(uriToExecute, url);
-                url = uri.ToString();
+
+                UriBuilder uriBuilder = new UriBuilder(uri);
+                uriBuilder.Fragment = null;
+
+                if (uriBuilder.Query == "?")
+                    uriBuilder.Query = null;
+
+                url = new Uri(uriBuilder.ToString()).ToString();
                 links[i] = url;
             }
         }
@@ -130,7 +137,6 @@ namespace StaticSiteCrawler
         }
 
         private readonly static List<string> fileExtensions = new List<string>() { ".html", ".xml", ".js", ".css", ".jpg", ".png", ".gif", ".svg" };
-        private readonly static List<Regex> textContentTypes = new List<Regex>() { new Regex("text/(.*)"), new Regex("application/xml"), new Regex("application/json"), new Regex("application/javascript") };
 
         private static async Task SaveContentAsync(string outputPath, string path, HttpContent content)
         {
@@ -184,14 +190,16 @@ namespace StaticSiteCrawler
         private static async Task<List<string>> GetLinksAsync((HttpContent body, string contentType) content)
         {
             List<string> result = new List<string>();
-            if (!textContentTypes.Any(r => r.IsMatch(content.contentType)))
-                return result;
 
             string body = await content.body.ReadAsStringAsync();
             if (String.IsNullOrEmpty(body))
                 return result;
 
-            foreach (Regex regex in content.contentType == "text/css" ? cssRegexes : htmlRegexes)
+            List<Regex> regexes = FindContentRegexesByContentType(content.contentType);
+            if (regexes == null)
+                return result;
+
+            foreach (Regex regex in regexes)
             {
                 MatchCollection matches = regex.Matches(body);
                 foreach (Match match in matches)
@@ -205,6 +213,16 @@ namespace StaticSiteCrawler
             }
 
             return result;
+        }
+
+        private static List<Regex> FindContentRegexesByContentType(string contentType)
+        {
+            if (contentType == "text/css")
+                return cssRegexes;
+            else if (contentType == "text/html")
+                return htmlRegexes;
+
+            return null;
         }
 
         private static void EnsureDirectory(string path)
