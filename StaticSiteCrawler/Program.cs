@@ -14,6 +14,8 @@ namespace StaticSiteCrawler
 {
     class Program
     {
+        private static HttpClient client = new HttpClient();
+
         private static HashSet<string> doneUrls;
         private static HashSet<string> failedUrls;
         private static bool urlListOnly = false;
@@ -204,14 +206,11 @@ namespace StaticSiteCrawler
 
         private static async Task<(HttpContent body, string contentType)?> GetUrlContentAsync(string url)
         {
-            using (HttpClient client = new HttpClient())
-            {
-                HttpResponseMessage response = await client.GetAsync(url);
-                Log($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
-                if (response.StatusCode == HttpStatusCode.OK)
-                    return (response.Content, response.Content.Headers.ContentType.MediaType);
+            HttpResponseMessage response = await client.GetAsync(url);
+            Log($"URL '{url}' returned with code '{(int)response.StatusCode}'.");
+            if (response.StatusCode == HttpStatusCode.OK)
+                return (response.Content, response.Content.Headers.ContentType.MediaType);
 
-            }
 
             failedUrls.Add(url);
             return null;
