@@ -3,7 +3,7 @@
     <TargetFramework>net471</TargetFramework>
     <LangVersion>latest</LangVersion>
     <OutputType>exe</OutputType>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <Authors>Maraf</Authors>
     <Company />
     <Description>A simple util for crawling links from root URL and saving HTML documents.</Description>
