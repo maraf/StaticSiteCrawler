@@ -109,6 +109,8 @@ namespace StaticSiteCrawler
 
         private static async Task ExecuteAsync(string rootUrl, string urlToExecute, string outputPath)
         {
+            Log($"Processing URL '{urlToExecute}'.");
+
             string outputFilePath = GetOutputFilePath(outputPath, urlToExecute.Substring(rootUrl.Length));
             if (downloadMissingOnly && File.Exists(outputFilePath))
             {
@@ -116,7 +118,6 @@ namespace StaticSiteCrawler
                 return;
             }
 
-            Log($"Processing URL '{urlToExecute}'.");
             var content = await GetUrlContentAsync(urlToExecute);
             doneUrls.Add(urlToExecute);
 
@@ -168,6 +169,7 @@ namespace StaticSiteCrawler
             ".css",
             ".jpg",
             ".png",
+            ".ico",
             ".gif",
             ".svg",
             ".eot",
@@ -190,6 +192,7 @@ namespace StaticSiteCrawler
 
             if (fileExtensions.Any(e => path.EndsWith(e, StringComparison.InvariantCultureIgnoreCase)))
             {
+                Log($"Getting directory name from '{path}'.");
                 targetDirectory = Path.Combine(outputPath, Path.GetDirectoryName(path));
                 file = Path.Combine(targetDirectory, Path.GetFileName(path));
             }
@@ -223,7 +226,8 @@ namespace StaticSiteCrawler
             new Regex("<a.*?(?<attribute>href|name)=\"(?<value>.*?)\".*?>", regexOptions), // HTML a href
             new Regex("<img.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", regexOptions), // HTML img src
             new Regex("<script.*?(?<attribute>src)=\"(?<value>.*?)\".*?>", regexOptions), // HTML script src
-            new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", regexOptions) // HTML link href *.css
+            new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.css)?)\".*?>", regexOptions), // HTML link href *.css
+            new Regex("<link.*?(?<attribute>href)=\"(?<value>(.*\\.ico)?)\".*?>", regexOptions) // HTML link href *.ico - favicon
         };
 
         private readonly static List<Regex> cssRegexes = new List<Regex>()
